@@ -9,7 +9,7 @@ struct Network;
  * Num inputs = num_nodes[0]
  * Num outputs = num_nodes[num_layers-1]
  */
-struct Network *network_new(int num_layers, int *num_nodes, activator *acts, activator *dacts);
+struct Network *network_new(int num_inputs, int num_layers, int *num_nodes, activator *acts, activator *dacts);
 void network_free(struct Network *n);
 
 void network_value(const struct Network *n, double *inputs, double *outputs);
