@@ -2,6 +2,7 @@
 #define LAYERED_NETWORK_H
 
 #include "node.h"
+#include <stdio.h>
 
 struct Network;
 
@@ -16,5 +17,13 @@ void network_value(const struct Network *n, double *inputs, double *outputs);
 
 /* Outputs may be null, in which case they are discarded. */
 void network_train(const struct Network *n, double *inputs, double *outputs, double *real_outputs, double rate);
+
+/* Pretty-prints */
+void network_dump(const struct Network *n, FILE *f);
+
+/* Data based IO: */
+void network_save(const struct Network *n, FILE *f);
+
+void network_load(const struct Network *n, FILE *f);
 
 #endif /* LAYERED_NETWORK_H */

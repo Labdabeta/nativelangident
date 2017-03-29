@@ -42,14 +42,18 @@ void node_set_weight(struct Node *n, int weight, double val)
     n->weights[weight] = val;
 }
 
-double node_get_weight(struct Node *n, int weight)
+double node_get_weight(const struct Node *n, int weight)
 {
     return n->weights[weight];
 }
 
 void node_delta_weight(struct Node *n, int weight, double dval)
 {
-    n->weights[weight] += val;
+    n->weights[weight] += dval;
+    if (n->weights[weight] > 1.0)
+        n->weights[weight] = 1.0;
+    if (n->weights[weight] < 0.0)
+        n->weights[weight] = 0.0;
 }
 
 double node_output(struct Node *n, double *inputs)

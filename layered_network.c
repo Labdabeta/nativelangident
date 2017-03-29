@@ -28,7 +28,7 @@ static double get_back_last_output(struct Network *n, double *inputs, int layer,
         return inputs[weight];
 }
 
-struct Network *network_new(int num_layers, int *num_nodes, activator *acts, activator *dacts)
+struct Network *network_new(int num_inputs, int num_layers, int *num_nodes, activator *acts, activator *dacts)
 {
     int i;
     int last_size;
@@ -38,12 +38,13 @@ struct Network *network_new(int num_layers, int *num_nodes, activator *acts, act
     ret->dact = malloc(sizeof(activator) * num_layers);
     ret->max_layer = num_nodes[0];
     ret->num_nodes = malloc(sizeof(int) * num_layers);
-    ret->inputs = num_nodes[0];
+    ret->inputs = num_inputs;
     ret->outputs = num_nodes[num_layers-1];
+    ret->num_layers = num_layers;
 
     last_size = ret->inputs;
 
-    for (i = 1; i < num_layers; ++i) {
+    for (i = 0; i < num_layers; ++i) {
         int x;
         ret->layers[i] = malloc(sizeof(struct Node*) * num_nodes[i]);
         for (x = 0; x < num_nodes[i]; ++x)
@@ -115,7 +116,7 @@ void network_train(const struct Network *n, double *inputs, double *outputs, dou
 
     /* Step 2: Construct Deltas */
     deltas = malloc(sizeof(double*) * n->num_layers);
-    for (layer = 0; layer < num_layers; ++layer) {
+    for (layer = 0; layer < n->num_layers; ++layer) {
         deltas[layer] = malloc(sizeof(double) * n->num_nodes[layer]);
         for (node = 0; node < n->num_nodes[layer]; ++node)
             deltas[layer][node] = 0.0;
@@ -158,9 +159,70 @@ void network_train(const struct Network *n, double *inputs, double *outputs, dou
 
             num_weights = node_num_weights(x);
             for (weight = 0; weight < num_weights; ++weight)
-                node_delta_weight(x, weight, rate * delta[layer][node] * node_last_output(x));
+                node_delta_weight(x, weight, rate * deltas[layer][node] * node_last_output(x));
             /* Update the bias */
-            node_delta_weight(x, num_weights, rate * delta[layer][node]);
+            node_delta_weight(x, num_weights, rate * deltas[layer][node]);
+        }
+    }
+}
+
+void network_dump(const struct Network *n, FILE *f)
+{
+    int layer, node, weight;
+
+    for (layer = 0; layer < n->num_layers; ++layer) {
+        fprintf(f,"Layer %d:\n",layer);
+        for (node = 0; node < n->num_nodes[layer]; ++node) {
+            int num_weights;
+            struct Node *x = n->layers[layer][node];
+
+            fprintf(f,"\tNode %d: ",node);
+
+            num_weights = node_num_weights(x);
+            for (weight = 0; weight < num_weights-1; ++weight)
+                fprintf(f,"%lf,",node_get_weight(x,weight));
+            fprintf(f,"%lf\n",node_get_weight(x,num_weights-1));
+        }
+    }
+}
+
+#define WRITE(f,val) do { fwrite(&(val),sizeof(val),1,f); } while (0)
+void network_save(const struct Network *n, FILE *f)
+{
+    int layer, node, weight;
+
+    /* Write each layer */
+    for (layer = 0; layer < n->num_layers; ++layer) {
+        for (node = 0; node < n->num_nodes[layer]; ++node) {
+            int num_weights;
+            struct Node *x = n->layers[layer][node];
+
+            num_weights = node_num_weights(x);
+            for (weight = 0; weight < num_weights; ++weight) {
+                double w = node_get_weight(x,weight);
+                WRITE(f,w);
+            }
+        }
+    }
+}
+
+#define READ(f,val) do { fread(&(val),sizeof(val),1,f); } while (0)
+void network_load(const struct Network *n, FILE *f)
+{
+    int layer, node, weight;
+
+    /* Write each layer */
+    for (layer = 0; layer < n->num_layers; ++layer) {
+        for (node = 0; node < n->num_nodes[layer]; ++node) {
+            int num_weights;
+            struct Node *x = n->layers[layer][node];
+
+            num_weights = node_num_weights(x);
+            for (weight = 0; weight < num_weights; ++weight) {
+                double w;
+                READ(f,w);
+                node_set_weight(x, weight, w);
+            }
         }
     }
 }
