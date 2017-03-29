@@ -5,11 +5,12 @@
 
 struct Network;
 
-struct Network *network_new(void);
+/*
+ * Num inputs = num_nodes[0]
+ * Num outputs = num_nodes[num_layers-1]
+ */
+struct Network *network_new(int num_layers, int *num_nodes, activator *acts, activator *dacts);
 void network_free(struct Network *n);
-void network_add_layer(struct Network *n, int num_nodes, activator act, activator dact);
-int network_get_num_inputs(const struct Network *n);
-int network_get_num_outputs(const struct Network *n);
 
 void network_value(const struct Network *n, double *inputs, double *outputs);
 
