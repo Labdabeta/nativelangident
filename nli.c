@@ -5,10 +5,10 @@
 #include "layered_network.h"
 
 #define WORD_LEN 10
-#define NUM_LANGS 2
+#define NUM_LANGS 4
 #define TRAIN_RATE 0.1
 
-char *languages[] = {"English", "Esperanto"};
+char *languages[] = {"English", "Esperanto", "German", "Norwegian"};
 
 double sigmoid(double x) { return 1.0 / (1.0 + pow(M_E, -x)); }
 double dsigmoid(double x) { return sigmoid(x)*(1.0-sigmoid(x)); }
@@ -20,7 +20,7 @@ int history[1000];
 int history_counter = 0;
 int num_inputs = 26 * WORD_LEN;
 int num_layers = 2;
-int num_nodes[] = { 18, 2 };
+int num_nodes[] = { 26, NUM_LANGS };
 int assumed_lang;
 activator acts[] = {sigmoid, sigmoid};
 activator dacts[] = {dsigmoid, dsigmoid};
@@ -107,6 +107,7 @@ void handle_option(char *option) {
                 s, s/10.0);
     } else if (!strcmp(option,"train")) {
         training = !training;
+        printf("Training: %s\n", (training?"ON":"OFF"));
     } else if (!strcmp(option,"load")) {
         char fname[256];
         FILE *f;
@@ -129,6 +130,7 @@ void handle_option(char *option) {
         fclose(f);
     } else if (!strcmp(option,"print")) {
         printing = !printing;
+        printf("Printing: %s\n", (printing?"ON":"OFF"));
     } else if (!strcmp(option,"assume")) {
         scanf("%d", &assumed_lang);
     } else if (!strcmp(option,"normal")) {
