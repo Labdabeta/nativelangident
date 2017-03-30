@@ -17,7 +17,7 @@ struct Network {
 
 static double small_random_value(void)
 {
-    /*return 0.1;*/
+    /* return 0.1; */
     return ((double)rand() / RAND_MAX) - 0.5;
 }
 
@@ -162,12 +162,12 @@ void network_train(struct Network *n, double *inputs, double *outputs, double *r
             struct Node *x = n->layers[layer][node];
 
             num_weights = node_num_weights(x);
-            for (weight = 0; weight < num_weights; ++weight) {
+            for (weight = 0; weight < num_weights-1; ++weight) {
                 double last_back_output = get_back_last_output(n, inputs, layer, weight);
                 node_delta_weight(x, weight, -1 * rate * deltas[layer][node] * last_back_output);
             }
             /* Update the bias */
-            node_delta_weight(x, num_weights, rate * deltas[layer][node]);
+            node_delta_weight(x, num_weights-1, rate * deltas[layer][node]);
         }
     }
 }

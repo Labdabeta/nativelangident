@@ -1,5 +1,6 @@
 #include "node.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 struct Node {
     double *weights;
@@ -39,7 +40,8 @@ int node_num_weights(const struct Node *n)
 
 void node_set_weight(struct Node *n, int weight, double val)
 {
-    n->weights[weight] = val;
+    if (weight <= n->size)
+        n->weights[weight] = val;
 }
 
 double node_get_weight(const struct Node *n, int weight)
@@ -49,6 +51,10 @@ double node_get_weight(const struct Node *n, int weight)
 
 void node_delta_weight(struct Node *n, int weight, double dval)
 {
+    if (weight > n->size) {
+        printf("Out of bounds!\n");
+        return;
+    }
     n->weights[weight] += dval;
     if (n->weights[weight] > 1.0)
         n->weights[weight] = 1.0;

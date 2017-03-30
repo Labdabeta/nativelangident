@@ -2,42 +2,62 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <argp.h>
 #include "layered_network.h"
 
-#define WORD_LEN 10
-#define NUM_LANGS 4
 #define TRAIN_RATE 0.1
 
-char *languages[] = {"English", "Esperanto", "German", "Norwegian"};
+char **languages;
 
-double sigmoid(double x) { return 1.0 / (1.0 + pow(M_E, -x)); }
+/* softmax is the integral of sigmoid */
+double softmax(double x) {
+    double ret = log(1 + pow(M_E, x));
+    if (ret != ret)
+        return 0.0;
+    return ret;
+}
+
+double sigmoid(double x) {
+    double ret = 1.0 / (1.0 + pow(M_E, -x));
+    if (ret != ret)
+        return 0.0;
+    return ret;
+}
+
 double dsigmoid(double x) { return sigmoid(x)*(1.0-sigmoid(x)); }
+
+double rectifier(double x) { return (x < 0) ? 0 : x; }
+double drectifier(double x) { return (x < 0) ? 0 : 1; }
+
+double identity(double x) { return x; }
+double unity(double x) { return 1.0; }
 
 int training;
 int printing;
+int show_history;
 int num_successes, num_trials;
+int assumed_lang;
 int history[1000];
 int history_counter = 0;
-int num_inputs = 26 * WORD_LEN;
-int num_layers = 2;
-int num_nodes[] = { 26, NUM_LANGS };
-int assumed_lang;
-activator acts[] = {sigmoid, sigmoid};
-activator dacts[] = {dsigmoid, dsigmoid};
+int word_len;
+int num_langs;
+double *inputs;
+double *expected;
+double *outputs;
 struct Network *net;
 
 void runInput(char *word, int lang) {
     int i, bigindex;
-    double inputs[26 * WORD_LEN] = {0};
-    double expected[NUM_LANGS];
-    double outputs[NUM_LANGS];
     double biggest;
 
-    for (i = 0; i < NUM_LANGS; ++i)
+    for (i = 0; i < 26 * word_len; ++i)
+        inputs[i] = 0.0;
+
+    for (i = 0; i < num_langs; ++i)
         expected[i] = (lang & (1 << i) ? 1.0 : 0.0);
 
-    for (i = 0; i < WORD_LEN; ++i)
-        if (word[i]) inputs[26 * i + word[i] - 'a' + 1] = 1.0;
+    for (i = 0; i < word_len; ++i)
+        if (word[i] && word[i] >= 'a' && word[i] <= 'z') inputs[26 * i + word[i] - 'a' + 1] = 1.0;
 
     if (training)
         network_train(net, inputs, outputs, expected, TRAIN_RATE);
@@ -46,7 +66,7 @@ void runInput(char *word, int lang) {
 
     biggest = outputs[0];
     bigindex = 0;
-    for (i = 1; i < NUM_LANGS; ++i) {
+    for (i = 1; i < num_langs; ++i) {
         if (outputs[i] > biggest) {
             biggest = outputs[i];
             bigindex = i;
@@ -55,13 +75,13 @@ void runInput(char *word, int lang) {
 
     if (printing) {
         printf("Guess(%s): ", word);
-        for (i = 0; i < NUM_LANGS; ++i) {
+        for (i = 0; i < num_langs; ++i) {
             if (lang & (1 << i))
                 printf("%s,",languages[i]);
         }
         printf("\b\n\t");
 
-        for (i = 0; i < NUM_LANGS; ++i)
+        for (i = 0; i < num_langs; ++i)
             printf("%lf %s,",outputs[i],languages[i]);
         printf("\b\n");
 
@@ -74,8 +94,8 @@ void runInput(char *word, int lang) {
             double err = 0.0;
             double mag = 0.0;
 
-            for (i = 0; i < NUM_LANGS; ++i) {
-                err += (outputs[i] - expected[i]) * (outputs[i] - expected[i]);
+            for (i = 0; i < num_langs; ++i) {
+                err += (expected[i] - outputs[i]) * (expected[i] - outputs[i]);
                 mag += expected[i] * expected[i];
             }
 
@@ -88,6 +108,13 @@ void runInput(char *word, int lang) {
         history[history_counter = (history_counter + 1) % 1000] = 1;
     } else {
         history[history_counter = (history_counter + 1) % 1000] = 0;
+    }
+
+    if (show_history) {
+        int i,s=0;
+        for (i = 0; i < 1000; ++i) s += history[i];
+        printf("Correctly guessed %d of the last thousand tests (%lf%%).\n",
+                s, s/10.0);
     }
 
     num_trials++;
@@ -108,7 +135,7 @@ void handle_option(char *option) {
     } else if (!strcmp(option,"train")) {
         training = !training;
         printf("Training: %s\n", (training?"ON":"OFF"));
-    } else if (!strcmp(option,"load")) {
+    } else if (!strcmp(option,"input")) {
         char fname[256];
         FILE *f;
 
@@ -121,13 +148,15 @@ void handle_option(char *option) {
         }
 
         while (!feof(f)) {
-            char word[11];
+            char word[256] = {0};
             int lang;
             fscanf(f,"%10s %d", word, &lang);
             runInput(word,lang);
         }
 
         fclose(f);
+
+        printf("Done!\n");
     } else if (!strcmp(option,"print")) {
         printing = !printing;
         printf("Printing: %s\n", (printing?"ON":"OFF"));
@@ -135,29 +164,114 @@ void handle_option(char *option) {
         scanf("%d", &assumed_lang);
     } else if (!strcmp(option,"normal")) {
         assumed_lang = -1;
+    } else if (!strcmp(option,"load")) {
+        char fname[256];
+        FILE *f;
+
+        scanf("%s",fname);
+        f = fopen(fname,"r");
+
+        if (!f) {
+            printf("Could not open %s.\n", fname);
+            return;
+        }
+
+        network_load(net, f);
+        fclose(f);
+    } else if (!strcmp(option,"save")) {
+        char fname[256];
+        FILE *f;
+
+        scanf("%s",fname);
+        f = fopen(fname,"w");
+
+        if (!f) {
+            printf("Could not open %s.\n", fname);
+            return;
+        }
+
+        network_save(net, f);
+        fclose(f);
+    } else if (!strcmp(option,"togglevh")) {
+        show_history = !show_history;
+
+        printf("Show history: %s\n", show_history?"ON":"OFF");
+    } else {
+        printf("Unknown command: %s\n", option);
     }
+}
+
+void load_net(int argc, char *argv[]) {
+    /* ./nli #word_len #layers ((s/+/r) #nodes)+ */
+    int i, num_inputs, num_layers, *num_nodes;
+    activator *acts, *dacts;
+
+    if (argc < 3) {
+        printf("%s [WORD_LEN] [NUM_LAYERS] ((s/+/r) #nodes)+ (Language Name)+\n", argv[0]);
+    }
+
+    word_len = atoi(argv[1]);
+    num_inputs = 26 * word_len;
+    num_layers = atoi(argv[2]);
+
+    acts = malloc(sizeof(activator) * num_layers);
+    dacts = malloc(sizeof(activator) * num_layers);
+    num_nodes = malloc(sizeof(int) * num_layers);
+
+    for (i = 0; i < num_layers; ++i) {
+        char activator = argv[2*i+3][0];
+
+        num_nodes[i] = atoi(argv[2*i+4]);
+
+        switch (activator) {
+            case 's':
+                acts[i] = sigmoid;
+                dacts[i] = dsigmoid;
+                break;
+            case '+':
+                acts[i] = softmax;
+                dacts[i] = sigmoid;
+                break;
+            case 'r':
+                acts[i] = rectifier;
+                dacts[i] = drectifier;
+                break;
+            default:
+                acts[i] = identity;
+                dacts[i] = unity;
+        }
+    }
+
+    num_langs = num_nodes[num_layers-1];
+
+    languages = malloc(sizeof(char*)*num_langs);
+    for (i = 0; i < num_langs; ++i)
+        languages[i] = argv[2*num_layers+3+i];
+
+    net = network_new(num_inputs, num_layers, num_nodes, acts, dacts);
+
+    inputs = malloc(sizeof(double) * 26 * word_len);
+    expected = malloc(sizeof(double) * num_langs);
+    outputs = malloc(sizeof(double) * num_langs);
+
+    free(acts);
+    free(dacts);
+    free(num_nodes);
 }
 
 int main(int argc, char *argv[])
 {
-    net = network_new(num_inputs, num_layers, num_nodes, acts, dacts);
+    load_net(argc, argv);
     training = 1;
     printing = 1;
+    show_history = 0;
     assumed_lang = -1;
-
-    if (argc > 1) {
-        FILE *f = fopen(argv[1], "rb");
-        if (f) {
-            network_load(net, f);
-            fclose(f);
-        }
-    }
 
     srand(0);
 
     num_successes = num_trials = 0;
     while (!feof(stdin)) {
-        char word[11] = {0};
+        char word[256] = {0};
         int lang;
 
         fscanf(stdin, "%10s", word);
@@ -178,12 +292,6 @@ int main(int argc, char *argv[])
         if (feof(stdin)) break;
 
         runInput(word,lang);
-    }
-
-    if (argc > 1) {
-        FILE *f = fopen(argv[1], "wb");
-        if (f) network_save(net, f);
-        fclose(f);
     }
 
     return 0;
