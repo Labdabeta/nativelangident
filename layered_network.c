@@ -17,6 +17,7 @@ struct Network {
 
 static double small_random_value(void)
 {
+    /*return 0.1;*/
     return ((double)rand() / RAND_MAX) - 0.5;
 }
 
@@ -39,7 +40,7 @@ struct Network *network_new(int num_inputs, int num_layers, int *num_nodes, acti
     ret->layers = malloc(sizeof(Layer) * num_layers);
     ret->act = malloc(sizeof(activator) * num_layers);
     ret->dact = malloc(sizeof(activator) * num_layers);
-    ret->max_layer = num_nodes[0];
+    ret->max_layer = num_inputs;
     ret->num_nodes = malloc(sizeof(int) * num_layers);
     ret->inputs = num_inputs;
     ret->outputs = num_nodes[num_layers-1];
