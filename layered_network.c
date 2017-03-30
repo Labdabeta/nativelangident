@@ -17,7 +17,7 @@ struct Network {
 
 static double small_random_value(void)
 {
-    return 0.5;
+    return ((double)rand() / RAND_MAX) - 0.5;
 }
 
 static double get_back_last_output(struct Network *n, double *inputs, int layer, int weight)
