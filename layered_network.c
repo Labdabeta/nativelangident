@@ -17,15 +17,18 @@ struct Network {
 
 static double small_random_value(void)
 {
-    return 0.1;
+    return 0.5;
 }
 
 static double get_back_last_output(struct Network *n, double *inputs, int layer, int weight)
 {
-    if (layer > 0)
+    if (layer > 0) {
+        if (weight >= n->num_nodes[layer-1]) return 1;
         return node_last_output(n->layers[layer-1][weight]);
-    else
+    } else {
+        if (weight >= n->inputs) return 1;
         return inputs[weight];
+    }
 }
 
 struct Network *network_new(int num_inputs, int num_layers, int *num_nodes, activator *acts, activator *dacts)
@@ -106,7 +109,7 @@ void network_value(const struct Network *n, double *inputs, double *outputs)
     free(new_values);
 }
 
-void network_train(const struct Network *n, double *inputs, double *outputs, double *real_outputs, double rate)
+void network_train(struct Network *n, double *inputs, double *outputs, double *real_outputs, double rate)
 {
     int layer,node;
     double **deltas;
@@ -131,7 +134,7 @@ void network_train(const struct Network *n, double *inputs, double *outputs, dou
         val = node_last_output(x);
         dval = node_last_doutput(x);
         target = real_outputs[node];
-        deltas[layer][node] = dval * (val - target) * (val - target);
+        deltas[layer][node] = dval * (val - target);
     }
 
     /* Step 2b: Hidden layer deltas */
@@ -158,8 +161,10 @@ void network_train(const struct Network *n, double *inputs, double *outputs, dou
             struct Node *x = n->layers[layer][node];
 
             num_weights = node_num_weights(x);
-            for (weight = 0; weight < num_weights; ++weight)
-                node_delta_weight(x, weight, rate * deltas[layer][node] * node_last_output(x));
+            for (weight = 0; weight < num_weights; ++weight) {
+                double last_back_output = get_back_last_output(n, inputs, layer, weight);
+                node_delta_weight(x, weight, -1 * rate * deltas[layer][node] * last_back_output);
+            }
             /* Update the bias */
             node_delta_weight(x, num_weights, rate * deltas[layer][node]);
         }

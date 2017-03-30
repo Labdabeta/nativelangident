@@ -16,7 +16,7 @@ void network_free(struct Network *n);
 void network_value(const struct Network *n, double *inputs, double *outputs);
 
 /* Outputs may be null, in which case they are discarded. */
-void network_train(const struct Network *n, double *inputs, double *outputs, double *real_outputs, double rate);
+void network_train(struct Network *n, double *inputs, double *outputs, double *real_outputs, double rate);
 
 /* Pretty-prints */
 void network_dump(const struct Network *n, FILE *f);

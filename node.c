@@ -52,8 +52,8 @@ void node_delta_weight(struct Node *n, int weight, double dval)
     n->weights[weight] += dval;
     if (n->weights[weight] > 1.0)
         n->weights[weight] = 1.0;
-    if (n->weights[weight] < 0.0)
-        n->weights[weight] = 0.0;
+    if (n->weights[weight] < -1.0)
+        n->weights[weight] = -1.0;
 }
 
 double node_output(struct Node *n, double *inputs)
