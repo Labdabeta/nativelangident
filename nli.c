@@ -20,7 +20,8 @@ int history[1000];
 int history_counter = 0;
 int num_inputs = 26 * WORD_LEN;
 int num_layers = 2;
-int num_nodes[] = { 20, 2 };
+int num_nodes[] = { 18, 2 };
+int assumed_lang;
 activator acts[] = {sigmoid, sigmoid};
 activator dacts[] = {dsigmoid, dsigmoid};
 struct Network *net;
@@ -45,7 +46,7 @@ void runInput(char *word, int lang) {
 
     biggest = outputs[0];
     bigindex = 0;
-    for (i = 1; i < WORD_LEN; ++i) {
+    for (i = 1; i < NUM_LANGS; ++i) {
         if (outputs[i] > biggest) {
             biggest = outputs[i];
             bigindex = i;
@@ -63,6 +64,11 @@ void runInput(char *word, int lang) {
         for (i = 0; i < NUM_LANGS; ++i)
             printf("%lf %s,",outputs[i],languages[i]);
         printf("\b\n");
+
+        printf("Guess is: %s(%d) - %s\n",
+                languages[bigindex],
+                bigindex + 1,
+                ((1<<bigindex)&lang)?"Correct!":"Wrong");
 
         if (training) {
             double err = 0.0;
@@ -123,6 +129,10 @@ void handle_option(char *option) {
         fclose(f);
     } else if (!strcmp(option,"print")) {
         printing = !printing;
+    } else if (!strcmp(option,"assume")) {
+        scanf("%d", &assumed_lang);
+    } else if (!strcmp(option,"normal")) {
+        assumed_lang = -1;
     }
 }
 
@@ -131,6 +141,7 @@ int main(int argc, char *argv[])
     net = network_new(num_inputs, num_layers, num_nodes, acts, dacts);
     training = 1;
     printing = 1;
+    assumed_lang = -1;
 
     if (argc > 1) {
         FILE *f = fopen(argv[1], "rb");
@@ -139,6 +150,8 @@ int main(int argc, char *argv[])
             fclose(f);
         }
     }
+
+    srand(0);
 
     num_successes = num_trials = 0;
     while (!feof(stdin)) {
@@ -154,7 +167,11 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        fscanf(stdin, "%d", &lang);
+        if (assumed_lang < 0) {
+            fscanf(stdin, " %d", &lang);
+        } else {
+            lang = assumed_lang;
+        }
 
         if (feof(stdin)) break;
 
